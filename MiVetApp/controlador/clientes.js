@@ -1,4 +1,4 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { getSupabase } from './api.js';
 import { requireLogin, initRoleUI, isVet } from './seguridad.js';
 
 
@@ -8,8 +8,7 @@ initRoleUI(usuario);
 
 const esSoloLectura = isVet(usuario); // si quieres que Vet sea solo lectura
 
-const sb = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-
+const sb = getSupabase();
 const $ = sel => document.querySelector(sel);
 
 const tbody      = $('#tablaClientes tbody');

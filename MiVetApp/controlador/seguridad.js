@@ -1,13 +1,9 @@
-// ============================================
-// seguridad.js (versión SIN Supabase Auth)
-// ============================================
+// controlador/seguridad.js
 
 // ---- Sesión local ----
-
 export function getUsuarioActual() {
   try {
     const raw = localStorage.getItem('veterinaryUser');
-    console.log('Usuario actual en localStorage:', raw);
     return raw ? JSON.parse(raw) : null;
   } catch (e) {
     console.error('Error leyendo usuario de localStorage', e);
@@ -15,12 +11,9 @@ export function getUsuarioActual() {
   }
 }
 
-// Normaliza el rol para evitar errores con mayúsculas/minúsculas
 function normalizarRol(rol) {
   return (rol || '').toString().trim().toLowerCase();
 }
-
-// Obtiene el rol del usuario
 function getRolUsuario(user) {
   return normalizarRol(user?.rolNombre || user?.rol);
 }
@@ -35,10 +28,8 @@ export function requireLogin(rolesPermitidos = null) {
   }
 
   const rolUser = getRolUsuario(user);
-
   if (rolesPermitidos && rolesPermitidos.length > 0) {
     const permitidos = rolesPermitidos.map(normalizarRol);
-
     if (!permitidos.includes(rolUser)) {
       alert('Acceso restringido.');
       window.location.href = 'login.html';
@@ -50,98 +41,79 @@ export function requireLogin(rolesPermitidos = null) {
 }
 
 // ---- Helpers de rol ----
-export function isAdmin(user) {
-  return getRolUsuario(user) === 'administrador';
-}
-export function isVet(user) {
-  return getRolUsuario(user) === 'veterinario';
-}
-export function isRecep(user) {
-  return getRolUsuario(user) === 'recepcionista';
-}
+export function isAdmin(user) { return getRolUsuario(user) === 'administrador'; }
+export function isVet(user)   { return getRolUsuario(user) === 'veterinario'; }
+export function isRecep(user) { return getRolUsuario(user) === 'recepcionista'; }
 
 // ---- Permisos ----
-export function puedeVerCuentas(user) {
-  return isAdmin(user);
-}
-export function puedeEditarCuentas(user) {
-  return isAdmin(user);
-}
+export function puedeVerCuentas(user)     { return isAdmin(user); }
+export function puedeEditarCuentas(user)  { return isAdmin(user); }
 export function puedeProgramarCitas(user) {
   const rol = getRolUsuario(user);
   return rol === 'administrador' || rol === 'recepcionista';
 }
-export function puedeVerMisCitas(user) {
-  return isVet(user);
-}
+export function puedeVerMisCitas(user)    { return isVet(user); }
 
-// ---- LOGOUT (solo borra sesión local) ----
+// ---- Logout ----
 export function logout() {
-  console.log('Cerrando sesión...');
   localStorage.removeItem('veterinaryUser');
   window.location.href = 'login.html';
 }
 
-// ---- Botón logout ----
+// Botón logout (intenta signOut si existe Supabase global; limpia storage y redirige)
 export function wireLogout(selector = '.btn-logout') {
-  // Ejecutar inmediatamente para cualquier página
-  const btns = document.querySelectorAll(selector);
-  console.log('Botones logout encontrados:', btns);
+  const el = document.querySelector(selector);
+  if (!el) return;
+  if (el.dataset.boundLogout === '1') return; // evita doble binding
 
-  btns.forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.preventDefault();
-      console.log('Click en logout');
-      logout();
-    });
+  el.addEventListener('click', async () => {
+    try {
+      const sb = window.supabase;
+      if (sb?.auth?.signOut) await sb.auth.signOut();
+    } catch (_) {}
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = 'login.html';
   });
+
+  el.dataset.boundLogout = '1';
 }
 
-// ---- UI por rol ----
+// ---- UI por rol + badge ----
 export function initRoleUI(userParam = null) {
   const user = userParam || getUsuarioActual();
   if (!user) return;
 
   const rolOriginal = user.rolNombre || user.rol || 'Sin rol';
-  const rolLower = getRolUsuario(user);
-  const correo = user.user || user.correo || '';
+  const rolLower    = getRolUsuario(user);
+  const correo      = user.correo || user.email || user.user || '';
 
-  // Ejecutar después de que el DOM esté listo
-  document.addEventListener('DOMContentLoaded', () => {
-    const indicator = document.querySelector('[data-user-indicator]');
-    if (indicator) {
-      indicator.textContent = `${rolOriginal} | ${correo}`;
-    }
+  // Badge: "ROL | CORREO"
+  const indicator = document.querySelector('[data-user-indicator]');
+  if (indicator) indicator.textContent = `${rolOriginal} | ${correo}`;
 
-    document.querySelectorAll('[data-roles]').forEach(link => {
-      const rolesStr = link.getAttribute('data-roles') || '';
-      const roles = rolesStr
-        .split(',')
-        .map(normalizarRol)
-        .filter(Boolean);
-
-      if (roles.length && !roles.includes(rolLower)) {
-        link.style.display = 'none';
-      } else {
-        link.style.display = '';
-      }
-    });
-
-    const linkMascotas = document.querySelector('#linkMascotas');
-    if (linkMascotas) {
-      if (isVet(user)) {
-        linkMascotas.href = 'mis_mascotas.html';
-        linkMascotas.innerHTML = `
-          <i class="fa-solid fa-dog"></i>
-          <span class="nav-text">Mis mascotas</span>
-        `;
-      } else {
-        linkMascotas.href = 'mascotas.html';
-        linkMascotas.innerHTML = `
-          <i class="fa-solid fa-dog"></i>
-          <span class="nav-text">Mascotas</span>
-        `;
-      }
-    }
+  // Mostrar/Ocultar por data-roles
+  document.querySelectorAll('[data-roles]').forEach(link => {
+    const rolesStr = link.getAttribute('data-roles') || '';
+    const roles = rolesStr.split(',').map(normalizarRol).filter(Boolean);
+    link.style.display = (roles.length && !roles.includes(rolLower)) ? 'none' : '';
   });
+
+  // Ajuste dinámico de link Mascotas para veterinario
+  const linkMascotas = document.querySelector('#linkMascotas');
+  if (linkMascotas) {
+    if (isVet(user)) {
+      linkMascotas.href = 'mis_mascotas.html';
+      linkMascotas.innerHTML = `
+        <i class="fa-solid fa-dog"></i>
+        <span class="nav-text">Mis mascotas</span>
+      `;
+    } else {
+      linkMascotas.href = 'mascotas.html';
+      linkMascotas.innerHTML = `
+        <i class="fa-solid fa-dog"></i>
+        <span class="nav-text">Mascotas</span>
+      `;
+    }
+  }
 }

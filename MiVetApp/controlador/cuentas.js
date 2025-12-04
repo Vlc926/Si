@@ -1,5 +1,5 @@
 // controlador/cuentas.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { getSupabase } from './api.js';
 import { requireLogin, initRoleUI, puedeVerCuentas } from './seguridad.js';
 
 
@@ -21,8 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // =========================
 // 🔗 SUPABASE
 // =========================
-const sb = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-
+const sb = getSupabase();
 // =========================
 // 📌 SELECTORES
 // =========================

@@ -1,10 +1,7 @@
 // controlador/login.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { getSupabase } from './api.js';
 
-
-const sb = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-
-// Formulario e inputs
+/* 1) Referencias del formulario (IDs alternos por compatibilidad) */
 const form =
   document.querySelector('#frmLogin') ||
   document.querySelector('#loginForm');
@@ -14,101 +11,127 @@ const inpCorreo =
   document.querySelector('#email');
 
 const inpPass =
-  document.querySelector('#contrasena') ||
+  document.querySelector('#contrasena') ||   // "contrasena"
+  document.querySelector('#contraseña')  ||   // "contraseña"
   document.querySelector('#password');
 
 const btnSubmit = form?.querySelector('button[type="submit"]');
-
 if (!form || !inpCorreo || !inpPass) {
   console.error('login.js: No se encontraron los elementos del formulario de login.');
 }
 
+/* 2) Helpers UI */
+function setSubmitting(isLoading) {
+  if (!btnSubmit) return;
+  btnSubmit.disabled = isLoading;
+  btnSubmit.textContent = isLoading ? 'Ingresando...' : 'Iniciar sesión';
+}
+
+function saveLocalSession({ id = null, email, nombre = '', telefono = '', rolNombre = 'Sin rol', rolId = null }) {
+  const usuarioSesion = {
+    id,
+    user: email,
+    correo: email,
+    nombre,
+    telefono,
+    rolId,
+    rolNombre,
+    rol: rolNombre
+  };
+  localStorage.setItem('veterinaryUser', JSON.stringify(usuarioSesion));
+}
+
+/* 3) Login contra tu esquema: usuarios + roles + cuenta("contraseña") */
+async function loginWithSupabase(sb, email, password) {
+  // IMPORTANTE: tu columna es literalmente "contraseña" (con ñ).
+  // Acceso SIEMPRE con corchetes: obj['contraseña']
+  const selectExpr = `
+    id,
+    nombre,
+    correo,
+    telefono,
+    rol_id,
+    rol:roles ( id, nombre ),
+    cuenta:cuenta!cuenta_usuario_id_fkey("contraseña")
+  `;
+
+  const { data: usuario, error } = await sb
+    .from('usuarios')
+    .select(selectExpr)
+    .eq('correo', email)        // usa ilike si quieres case-insensitive
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, reason: 'Error consultando usuario: ' + error.message };
+  }
+  if (!usuario) {
+    return { ok: false, reason: 'No se encontró un usuario con ese correo.' };
+  }
+
+  // Extraer contraseña real desde la relación "cuenta"
+  let passReal = null;
+  const cta = usuario.cuenta;
+  if (Array.isArray(cta)) {
+    passReal = cta[0]?.['contraseña'] ?? null;
+  } else if (cta) {
+    passReal = cta['contraseña'] ?? null;
+  }
+  if (!passReal) {
+    return { ok: false, reason: 'Esta cuenta no tiene contraseña configurada.' };
+  }
+
+  // Comparación en texto plano (como está hoy)
+  if (password !== passReal) {
+    return { ok: false, reason: 'Contraseña incorrecta.' };
+  }
+
+  const rolNombre = (usuario.rol?.nombre || 'Sin rol').trim();
+
+  return {
+    ok: true,
+    payload: {
+      id:       usuario.id,
+      email:    usuario.correo,
+      nombre:   usuario.nombre,
+      telefono: usuario.telefono,
+      rolId:    usuario.rol_id,
+      rolNombre
+    }
+  };
+}
+
+/* 4) Handler del formulario */
 form?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const correo = (inpCorreo.value || '').trim();
-  const pass   = inpPass.value || '';
+  const correo = (inpCorreo?.value || '').trim();
+  const pass   = inpPass?.value || '';
 
   if (!correo || !pass) {
     alert('Ingresa correo y contraseña.');
     return;
   }
 
-  if (btnSubmit) {
-    btnSubmit.disabled = true;
-    btnSubmit.textContent = 'Ingresando...';
-  }
-
+  setSubmitting(true);
   try {
-    // 1) Traer usuario + rol + cuenta en UNA sola consulta
-    const { data: usuario, error: errUser } = await sb
-      .from('usuarios')
-      .select(`
-        id,
-        nombre,
-        correo,
-        telefono,
-        rol_id,
-        roles:roles ( nombre ),
-        cuenta:cuenta ( contraseña )
-      `)
-      .ilike('correo', correo)    // case-insensitive por si hay mayúsculas en la BD
-      .maybeSingle();
-
-    if (errUser) {
-      console.error('Error consultando usuario/rol/cuenta:', errUser);
-      alert('Error al verificar tus datos. Intenta más tarde.');
+    // Obtén el cliente centralizado
+    const sb = await getSupabase();
+    if (!sb) {
+      alert('Login: no hay configuración de Supabase (faltan SUPABASE_URL o SUPABASE_ANON_KEY).');
       return;
     }
 
-    if (!usuario) {
-      alert('No se encontró un usuario con ese correo.');
+    const result = await loginWithSupabase(sb, correo, pass);
+    if (!result.ok) {
+      alert(result.reason || 'No se pudo iniciar sesión.');
       return;
     }
 
-    console.log('Usuario completo desde Supabase:', usuario);
+    // Guardar sesión local (lo usa seguridad.js)
+    saveLocalSession(result.payload);
 
-    // 2) Extraer contraseña real desde la relación "cuenta"
-    let passReal = null;
-
-    if (Array.isArray(usuario.cuenta)) {
-      // Cuando Supabase devuelve un array (relación 1:N)
-      passReal = usuario.cuenta[0]?.contraseña ?? null;
-    } else if (usuario.cuenta) {
-      // Por si fuera un objeto directo
-      passReal = usuario.cuenta.contraseña ?? null;
-    }
-
-    if (!passReal) {
-      alert('Esta cuenta no tiene contraseña configurada.');
-      return;
-    }
-
-    // 3) Comparar contraseñas (texto plano por ahora)
-    if (pass !== passReal) {
-      alert('Contraseña incorrecta.');
-      return;
-    }
-
-    // 4) Obtener el nombre de rol desde la relación "roles"
-    const rolNombre = (usuario.roles?.nombre || 'Sin rol').trim();
-    console.log('Login OK. Rol detectado:', rolNombre);
-
-    // 5) Guardar info en localStorage para seguridad.js
-    const usuarioSesion = {
-      id:        usuario.id,
-      user:      usuario.correo,
-      nombre:    usuario.nombre,
-      telefono:  usuario.telefono,
-      rolId:     usuario.rol_id,
-      rolNombre: rolNombre
-    };
-
-    localStorage.setItem('veterinaryUser', JSON.stringify(usuarioSesion));
-
-    // 6) Redirigir según rol
-    const rolLower = rolNombre.toLowerCase();
-
+    // Redirección por rol
+    const rolLower = (result.payload.rolNombre || '').toLowerCase();
     if (rolLower === 'administrador') {
       window.location.href = 'index.html';
     } else if (rolLower === 'recepcionista') {
@@ -118,14 +141,10 @@ form?.addEventListener('submit', async (e) => {
     } else {
       window.location.href = 'index.html';
     }
-
   } catch (err) {
     console.error('Error inesperado en login:', err);
     alert('Ocurrió un error al iniciar sesión.');
   } finally {
-    if (btnSubmit) {
-      btnSubmit.disabled = false;
-      btnSubmit.textContent = 'Iniciar sesión';
-    }
+    setSubmitting(false);
   }
 });

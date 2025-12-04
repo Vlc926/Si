@@ -1,5 +1,5 @@
 // controlador/citas.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { getSupabase } from './api.js';
 import { requireLogin, initRoleUI, puedeProgramarCitas } from './seguridad.js';
 
 // Solo Admin, Vet y Recepcionista pueden entrar a este módulo
@@ -11,8 +11,7 @@ if (!usuario || !puedeProgramarCitas(usuario)) {
 
 initRoleUI(usuario);
 
-const sb  = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-const $   = (s) => document.querySelector(s);
+const sb = getSupabase();const $   = (s) => document.querySelector(s);
 const tbody      = $('#tablaCitas tbody');
 const btnMenu    = document.querySelector('.menu-toggle');
 const inpBuscar  = $('#busquedaCitas');   // ⬅️ input de búsqueda

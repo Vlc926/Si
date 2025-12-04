@@ -1,5 +1,5 @@
 // controlador/mis_mascotas.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { getSupabase } from './api.js';
 import { requireLogin, initRoleUI, wireLogout } from './seguridad.js';
 
 
@@ -8,8 +8,7 @@ const usuario = requireLogin(['Veterinario']);
 initRoleUI(usuario);
 wireLogout();
 
-const sb = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-const $  = (s) => document.querySelector(s);
+const sb = getSupabase();const $  = (s) => document.querySelector(s);
 
 const tabla     = document.querySelector('#tablaMascotas');
 const tbody     = tabla ? tabla.querySelector('tbody') : null;

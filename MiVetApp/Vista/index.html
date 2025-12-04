@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +11,6 @@
 </head>
 
 <body class="index">
-
   <!-- SIDEBAR -->
   <div class="sidebar">
     <h2>Menú Principal</h2>
@@ -23,8 +21,9 @@
         <i class="fa-solid fa-calendar-check"></i> Citas
       </a>
 
-      <!-- <span class="nav-text">Mascotas</span>: Admin + Recepcionista + Veterinario -->
-      <a id="link<span class="nav-text">Mascotas</span>" href="mascotas.html" data-roles="Administrador,Recepcionista,Veterinario">
+      <!-- Mascotas -->
+      <a id="linkMascotas" href="./mascotas.html"
+         data-roles="Administrador,Recepcionista,Veterinario">
         <i class="fa-solid fa-dog"></i> <span class="nav-text">Mascotas</span>
       </a>
 
@@ -47,7 +46,6 @@
 
   <!-- PANEL -->
   <div class="panel">
-
     <header class="panel-header">
       <div class="header-left">
         <button class="menu-toggle" type="button" title="Abrir menú">
@@ -61,13 +59,12 @@
       </div>
 
       <div class="header-right">
+        <!-- Aquí se pinta: ROL | CORREO -->
         <span class="user-badge" data-user-indicator></span>
 
-        <button type="button" class="btn-logout">
-          <i class="fa-solid fa-right-from-bracket"></i>
-          Cerrar sesión
+        <button type="button" class="btn-logout" aria-label="Cerrar sesión">
+          <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión
         </button>
-
       </div>
     </header>
 
@@ -80,11 +77,10 @@
       <p>@ Pixel & Byte 2025</p>
     </footer>
   </div>
-  <script type="module" src="../controlador/config.js"></script>
-  <script type="module" src="../controlador/index.js"></script>
 
+<!-- Estando index.html en /Vista/, sube a la raíz y entra a /controlador/  -->
+<script type="module" src="../controlador/index.js"></script>
 
 
 </body>
-
 </html>

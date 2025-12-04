@@ -1,12 +1,11 @@
 // controlador/mis_citas.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { getSupabase } from './api.js';
 import { requireLogin, initRoleUI } from './seguridad.js';
 
 
 const usuario = requireLogin(['Veterinario']);
 initRoleUI(usuario);
-const sb = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-const $ = (s) => document.querySelector(s);
+const sb = getSupabase();const $ = (s) => document.querySelector(s);
 
 const tbody = $('#tablaMisCitas tbody');
 

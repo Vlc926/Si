@@ -1,13 +1,12 @@
 // controlador/mascotas.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { getSupabase } from './api.js';
 import { requireLogin, initRoleUI, isVet } from './seguridad.js';
 
 // Admin, Recepcionista (y Veterinario) pueden entrar
 const usuario = requireLogin(['Administrador', 'Recepcionista', 'Veterinario']);
 initRoleUI(usuario);
 
-const sb = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-
+const sb = getSupabase();
 // Helpers
 const $         = (s) => document.querySelector(s);
 const tbody     = $('#tablaMascotas tbody');
